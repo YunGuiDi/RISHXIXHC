@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>外送餐飲使用頻率與滿意度問卷</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f0ebf8;--card:#fff;--tx:#202124;--sub:#5f6368;--pr:#673ab7;--bd:#dadce0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1f1a2b;--card:#2a2438;--tx:#e8eaed;--sub:#a8abb0;--pr:#b39ddb;--bd:#4a4458}}
+:root[data-theme="dark"]{--bg:#1f1a2b;--card:#2a2438;--tx:#e8eaed;--sub:#a8abb0;--pr:#b39ddb;--bd:#4a4458}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",Roboto,Arial,sans-serif;font-size:15px;line-height:1.6}
+.wrap{max-width:700px;margin:0 auto;padding:12px}
+.tabs{display:flex;gap:8px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:8px;cursor:pointer;font-size:15px}
+.tabs button.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:18px 20px;margin-bottom:12px}
+.head{border-top:10px solid var(--pr)}
+h1{margin:0 0 8px;font-size:24px;font-weight:400}
+h2{margin:0 0 4px;font-size:16px;font-weight:500}
+.sub{color:var(--sub);font-size:13px}
+.req::after{content:" *";color:#d93025}
+label.opt{display:flex;align-items:center;gap:10px;padding:5px 0;cursor:pointer}
+input[type=radio],input[type=checkbox]{accent-color:var(--pr);width:18px;height:18px}
+.scroll{overflow-x:auto}
+table.lk{border-collapse:collapse;width:100%;min-width:480px}
+table.lk th{font-weight:400;font-size:12px;color:var(--sub);padding:4px}
+table.lk td{text-align:center;padding:8px 4px;border-top:1px solid var(--bd)}
+table.lk td:first-child{text-align:left;font-size:14px;min-width:130px}
+.btn{background:var(--pr);color:#fff;border:0;border-radius:6px;padding:10px 24px;font-size:15px;cursor:pointer;margin:4px 6px 4px 0}
+.btn.sec{background:transparent;color:var(--pr);border:1px solid var(--bd)}
+.err{color:#d93025;font-size:13px;margin-top:6px}
+.hide{display:none}
+table.rs{border-collapse:collapse;width:100%;font-size:14px}
+table.rs th,table.rs td{border-bottom:1px solid var(--bd);padding:6px;text-align:right}
+table.rs th:first-child,table.rs td:first-child{text-align:left}
+svg text{fill:var(--tx);font-family:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="tabs"><button id="t1" class="on" onclick="tab(1)">問卷填寫</button><button id="t2" onclick="tab(2)">路徑分析結果</button></div>
+
+<div id="p1">
+<form id="f" onsubmit="return false">
+<div class="card head"><h1>外送餐飲使用頻率與滿意度調查</h1>
+<div class="sub">您好！本問卷為學術研究用途，探討外送平台使用頻率、滿意度與推薦意願之關係。採匿名填答，資料僅作統計分析，約需 3 分鐘。<br>(<span style="color:#d93025">*</span> 為必填)</div></div>
+<div id="qs"></div>
+<button class="btn" onclick="submitF()">提交</button><button class="btn sec" onclick="document.getElementById('f').reset()">清除表單</button>
+<div id="msg" class="err"></div>
+</form>
+</div>
+
+<div id="p2" class="hide">
+<div class="card"><h2>回收概況</h2><div id="n" class="sub"></div>
+<button class="btn" onclick="demo()">產生 60 筆模擬資料</button><button class="btn sec" onclick="csv()">匯出 CSV</button><button class="btn sec" onclick="clr()">清除資料</button></div>
+<div class="card"><h2>路徑圖（標準化係數 β）</h2><div class="scroll"><svg id="svg" viewBox="0 0 640 260" width="100%"></svg></div></div>
+<div class="card"><h2>路徑係數表</h2><div class="scroll" id="tbl"></div><div class="sub" id="note"></div></div>
+</div>
+</div>
+
+<script>
+const LK=["非常不同意","不同意","普通","同意","非常同意"];
+const Q=[
+{id:"gender",t:"1. 性別",o:["男","女","其他/不願透露"],req:1},
+{id:"age",t:"2. 年齡",o:["18 歲以下","19–25 歲","26–35 歲","36–45 歲","46 歲以上"],req:1},
+{id:"freq",t:"3. 您平均每個月使用外送平台訂餐的次數？",o:["1 次以下","1–3 次","4–6 次","7–10 次","11 次以上"],req:1,n:1},
+{id:"plat",t:"4. 您最常使用的外送平台（可複選）",o:["Uber Eats","foodpanda","其他"],multi:1},
+{id:"sat",t:"5. 滿意度：請針對您最常使用的平台，勾選同意程度",rows:["餐點品質令人滿意","送達速度令人滿意","價格（含運費）合理","客服與問題處理令人滿意","整體而言我對此平台滿意"]},
+{id:"rec",t:"6. 推薦意願：請勾選同意程度",rows:["我願意向親友推薦此平台","我會在社群/網路上給予正面評價","若有人詢問，我會建議他使用此平台"]}
+];
+const $=id=>document.getElementById(id);
+function build(){
+ $("qs").innerHTML=Q.map(q=>{
+  let b;
+  if(q.rows){b='<div class="scroll"><table class="lk"><tr><th></th>'+LK.map((l,i)=>`<th>${i+1}<br>${l}</th>`).join("")+"</tr>"+
+   q.rows.map((r,i)=>`<tr><td>${r}</td>`+LK.map((_,k)=>`<td><input type="radio" name="${q.id}${i}" value="${k+1}"></td>`).join("")+"</tr>").join("")+"</table></div>";}
+  else b=q.o.map((o,i)=>`<label class="opt"><input type="${q.multi?"checkbox":"radio"}" name="${q.id}" value="${q.n?i+1:o}">${o}</label>`).join("");
+  return `<div class="card" id="c_${q.id}"><h2 class="${q.req||q.rows?"req":""}">${q.t}</h2>${b}</div>`}).join("");
+}
+function load(){try{return JSON.parse(localStorage.getItem("resp")||"[]")}catch(e){return[]}}
+function save(a){try{localStorage.setItem("resp",JSON.stringify(a))}catch(e){mem=a}}
+let mem=[];
+function get(){const a=load();return a.length?a:mem}
+function submitF(){
+ const fd=new FormData($("f")),r={};let bad=null;
+ document.querySelectorAll(".card").forEach(c=>c.style.borderColor="");
+ for(const q of Q){
+  if(q.rows){r[q.id]=q.rows.map((_,i)=>+fd.get(q.id+i)||0);if(r[q.id].includes(0))bad=bad||q}
+  else if(q.multi)r[q.id]=fd.getAll(q.id).join("、");
+  else{r[q.id]=fd.get(q.id);if(q.req&&!r[q.id])bad=bad||q}
+ }
+ if(bad){$("c_"+bad.id).style.borderColor="#d93025";$("c_"+bad.id).scrollIntoView({behavior:"smooth"});$("msg").textContent="請完成標示 * 的必填題目";return}
+ $("msg").textContent="";const a=get();a.push(r);save(a);
+ $("p1").innerHTML='<div class="card head"><h1>已記錄您的回應</h1><div class="sub">感謝您的填答！</div><br><button class="btn" onclick="location.reload()">提交另一份回應</button></div>';
+}
+function tab(n){$("p1").classList.toggle("hide",n!=1);$("p2").classList.toggle("hide",n!=2);$("t1").className=n==1?"on":"";$("t2").className=n==2?"on":"";if(n==2)analyze()}
+const mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+function cor(x,y){const mx=mean(x),my=mean(y);let sxy=0,sx=0,sy=0;x.forEach((v,i)=>{sxy+=(v-mx)*(y[i]-my);sx+=(v-mx)**2;sy+=(y[i]-my)**2});return sxy/Math.sqrt(sx*sy)}
+function erf(x){const t=1/(1+.3275911*Math.abs(x)),y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);return x>=0?y:-y}
+const pv=t=>2*(1-.5*(1+erf(Math.abs(t)/Math.SQRT2)));
+const fp=p=>p<.001?"&lt;.001***":p.toFixed(3)+(p<.01?"**":p<.05?"*":"");
+function analyze(){
+ const d=get();$("n").textContent="目前有效樣本數 N = "+d.length+"（資料存於此瀏覽器，可匯出 CSV）";
+ if(d.length<10){$("svg").innerHTML='<text x="20" y="40">樣本數需 ≥ 10 才能進行分析（可先按「產生模擬資料」預覽）</text>';$("tbl").innerHTML="";$("note").textContent="";return}
+ const F=d.map(r=>+r.freq),S=d.map(r=>mean(r.sat)),R=d.map(r=>mean(r.rec)),n=d.length;
+ const rfs=cor(F,S),rfr=cor(F,R),rsr=cor(S,R),den=1-rfs*rfs;
+ const a=rfs,sa=Math.sqrt((1-a*a)/(n-2));
+ const bs=(rsr-rfr*rfs)/den,bf=(rfr-rsr*rfs)/den,R2=bs*rsr+bf*rfr;
+ const se=Math.sqrt((1-R2)/((n-3)*den));
+ const ind=a*bs,sob=Math.sqrt(bs*bs*sa*sa+a*a*se*se),tot=bf+ind;
+ const rows=[["頻率 → 滿意度 (a)",a,sa],["滿意度 → 推薦意願 (b)",bs,se],["頻率 → 推薦意願 (c′ 直接)",bf,se]];
+ let h='<table class="rs"><tr><th>路徑</th><th>β</th><th>SE</th><th>p</th></tr>'+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1].toFixed(3)}</td><td>${r[2].toFixed(3)}</td><td>${fp(pv(r[1]/r[2]))}</td></tr>`).join("");
+ h+=`<tr><td>間接效果 a×b（Sobel）</td><td>${ind.toFixed(3)}</td><td>${sob.toFixed(3)}</td><td>${fp(pv(ind/sob))}</td></tr><tr><td>總效果 c′+a×b</td><td>${tot.toFixed(3)}</td><td></td><td></td></tr>`;
+ h+=`<tr><td>R²（滿意度）</td><td>${(a*a).toFixed(3)}</td><td></td><td></td></tr><tr><td>R²（推薦意願）</td><td>${R2.toFixed(3)}</td><td></td><td></td></tr></table>`;
+ $("tbl").innerHTML=h;
+ $("note").innerHTML="* p&lt;.05　** p&lt;.01　*** p&lt;.001。頻率為 1–5 級單題；滿意度為 5 題平均；推薦意願為 3 題平均。採標準化 OLS 路徑分析，p 值以常態近似；正式論文建議以 SPSS PROCESS、AMOS 或 R lavaan 複核，並檢驗量表信度（Cronbach's α）。";
+ const bx=(x,y,t)=>`<rect x="${x}" y="${y}" width="150" height="60" rx="8" fill="none" stroke="var(--pr)" stroke-width="2"/><text x="${x+75}" y="${y+36}" text-anchor="middle" font-size="16">${t}</text>`;
+ const ar=(x1,y1,x2,y2,l,lx,ly)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--sub)" stroke-width="2" marker-end="url(#m)"/><text x="${lx}" y="${ly}" text-anchor="middle" font-size="14">${l}</text>`;
+ $("svg").innerHTML='<defs><marker id="m" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--sub)"/></marker></defs>'+
+  bx(245,20,"滿意度")+bx(20,170,"使用頻率")+bx(470,170,"推薦意願")+
+  ar(95,170,260,82,"β="+a.toFixed(2)+(pv(a/sa)<.05?"*":""),130,110)+
+  ar(380,82,545,170,"β="+bs.toFixed(2)+(pv(bs/se)<.05?"*":""),510,110)+
+  ar(170,200,470,200,"直接 β="+bf.toFixed(2)+(pv(bf/se)<.05?"*":""),320,225)+
+  `<text x="320" y="252" text-anchor="middle" font-size="13">間接效果 = ${ind.toFixed(3)}　R²(推薦)=${R2.toFixed(2)}</text>`;
+}
+function demo(){const a=[];const rn=()=>{let s=0;for(let i=0;i<6;i++)s+=Math.random();return(s-3)/.7};
+ const cl=x=>Math.max(1,Math.min(5,Math.round(x)));
+ for(let i=0;i<60;i++){const f=cl(3+rn()*1.1),s=3+.35*(f-3)+rn()*.7,rc=3+.6*(s-3)+.15*(f-3)+rn()*.5;
+  a.push({gender:["男","女"][i%2],age:"19–25 歲",freq:String(f),plat:"Uber Eats",sat:[0,0,0,0,0].map(()=>cl(s+rn()*.4)),rec:[0,0,0].map(()=>cl(rc+rn()*.4))})}
+ save(get().concat(a));analyze()}
+function clr(){if(confirm("確定清除所有資料？")){mem=[];try{localStorage.removeItem("resp")}catch(e){}analyze()}}
+function csv(){const d=get();if(!d.length)return;
+ const h=["gender","age","freq","plat",...[1,2,3,4,5].map(i=>"sat"+i),...[1,2,3].map(i=>"rec"+i)];
+ const t=[h.join(",")].concat(d.map(r=>[r.gender,r.age,r.freq,'"'+r.plat+'"',...r.sat,...r.rec].join(","))).join("\n");
+ const b=new Blob(["\ufeff"+t],{type:"text/csv"}),u=URL.createObjectURL(b),l=document.createElement("a");l.href=u;l.download="survey.csv";l.click()}
+build();
+</script>
+</body>
+</html>
